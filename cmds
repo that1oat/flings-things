@@ -85,13 +85,13 @@ box.Parent = frame
 local openTween = TweenService:Create(
     frame,
     TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-    { Position = UDim2.new(0.5, 0, 0, 80) } -- moved lower
+    { Position = UDim2.new(0.5, 0, 0, -20) } -- moved lower
 )
 
 local closeTween = TweenService:Create(
     frame,
     TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
-    { Position = UDim2.new(0.5, 0, 0, -60) }
+    { Position = UDim2.new(0.5, 0, 0, -25) }
 )
 
 box.Focused:Connect(function()
@@ -1202,18 +1202,29 @@ end)
 -- Global Fire State
 --====================================
 getgenv().FireActive = false
+getgenv().FirePlayers = {} -- Store players being fired
 
 --====================================
--- .fire Command
+-- .fire Command (Instant Burn - Fixed)
 --====================================
-createCmd("fire", "Set all NPCs on fire temporarily", function()
-    if getgenv().FireActive then
-        
+createCmd("fire", "Instantly set a player on fire", function(args)
+    local target = findPlayer(args[1] or "")
+    if not target then
+        return showNotification("Error", "Player not found")
     end
 
-    -- Do nothing if there are no NPCs
-    if not getgenv().GrabbedNPCs or next(getgenv().GrabbedNPCs) == nil then
-        return showNotification("Fire", "No NPCs to set on fire")
+    if not target.Character then
+        return showNotification("Error", "Target character not found")
+    end
+
+    local tHRP = target.Character:FindFirstChild("HumanoidRootPart")
+    if not tHRP then
+        return showNotification("Error", "Target HumanoidRootPart missing")
+    end
+
+    -- Check if player is already on fire
+    if getgenv().FirePlayers[target] then
+        return showNotification("Fire", target.Name .. " is already on fire!")
     end
 
     local myChar = LocalPlayer.Character
@@ -1226,43 +1237,95 @@ createCmd("fire", "Set all NPCs on fire temporarily", function()
     if not SpawnedToys then return showNotification("Error", "Spawned toys folder missing") end
 
     getgenv().FireActive = true
+    getgenv().FirePlayers[target] = true
 
+    -- ONLY the spawn RemoteFunction goes in task.spawn
     task.spawn(function()
-        -- Spawn Campfire
         local args = {
             [1] = "Campfire",
             [2] = myHRP.CFrame * CFrame.Angles(-1.618312954902649, -0.9145892262458801, -1.6307417154312134),
             [3] = Vector3.new(0, -92.09500122070312, 0)
         }
-        local campfire = game:GetService("ReplicatedStorage").MenuToys.SpawnToyRemoteFunction:InvokeServer(unpack(args))
-        end)
-        campfire = SpawnedToys:WaitForChild("Campfire")
+        game:GetService("ReplicatedStorage").MenuToys.SpawnToyRemoteFunction:InvokeServer(unpack(args))
+    end)
 
-        -- Set ownership
-        game:GetService("ReplicatedStorage").GrabEvents.SetNetworkOwner:FireServer(campfire.SoundPart, campfire.SoundPart.CFrame)
-
-        local poCheck = campfire.SoundPart:WaitForChild("PartOwner")
-        if not poCheck or poCheck.Value ~= LocalPlayer.Name then
-            showNotification("Fire", "Failed to obtain ownership of campfire")
+    -- EVERYTHING ELSE runs immediately without waiting for spawn
+    task.spawn(function()
+        -- Wait for campfire to spawn
+        local campfireInstance
+        local startTime = tick()
+        while tick() - startTime < 3 do
+            campfireInstance = SpawnedToys:FindFirstChild("Campfire")
+            if campfireInstance then 
+                break 
+            end
+            task.wait(0.05)
+        end
+        
+        if not campfireInstance then
+            showNotification("Fire", "Failed to spawn campfire")
             getgenv().FireActive = false
+            getgenv().FirePlayers[target] = nil
             return
         end
 
-        -- Teleport to all NPCs
-        for npc, head in pairs(getgenv().GrabbedNPCs) do
-            if npc and npc.Parent then
-                local hrp = npc:FindFirstChild("HumanoidRootPart")
-                if hrp then
-                    campfire:SetPrimaryPartCFrame(hrp.CFrame)
-                    task.wait(0.4)
-                end
+        -- Get SoundPart
+        local soundPart = campfireInstance:FindFirstChild("SoundPart")
+        if not soundPart then
+            showNotification("Fire", "SoundPart not found")
+            getgenv().FireActive = false
+            getgenv().FirePlayers[target] = nil
+            return
+        end
+
+        -- Set ownership (fast)
+        local owned = false
+        for i = 1, 5 do
+            game:GetService("ReplicatedStorage").GrabEvents.SetNetworkOwner:FireServer(soundPart, soundPart.CFrame)
+            task.wait(0.05)
+            
+            local poCheck = soundPart:FindFirstChild("PartOwner")
+            if poCheck and poCheck:IsA("StringValue") and poCheck.Value == LocalPlayer.Name then
+                owned = true
+                break
             end
         end
 
-        -- Destroy campfire after all
-        game:GetService("ReplicatedStorage").MenuToys:FindFirstChild("DestroyToy"):FireServer(campfire)
+        if not owned then
+            showNotification("Fire", "Failed to obtain ownership")
+            pcall(function()
+                game:GetService("ReplicatedStorage").MenuToys:FindFirstChild("DestroyToy"):FireServer(campfireInstance)
+            end)
+            getgenv().FireActive = false
+            getgenv().FirePlayers[target] = nil
+            return
+        end
+
+        -- Destroy grab line
+        --game.ReplicatedStorage.GrabEvents.DestroyGrabLine:FireServer(soundPart)
+
+        -- Teleport campfire to target
+        if target and target.Character then
+            local targetHRP = target.Character:FindFirstChild("HumanoidRootPart")
+            if targetHRP then
+                campfireInstance:SetPrimaryPartCFrame(targetHRP.CFrame * CFrame.new(0, -2.5, 1))
+            end
+        end
+
+        -- Wait a tiny moment for the fire to touch/damage the player
+        task.wait(0.3)
+
+        -- Destroy campfire immediately
+        pcall(function()
+            game:GetService("ReplicatedStorage").MenuToys:FindFirstChild("DestroyToy"):FireServer(campfireInstance)
+        end)
+
+        -- Mark player as burned
+        getgenv().FirePlayers[target] = nil
         getgenv().FireActive = false
-        showNotification("Fire", "All NPCs have been set on fire!")
+
+        showNotification("Fire", target.Name .. " has been burned!")
+    end)
 end)
 
 --====================================
