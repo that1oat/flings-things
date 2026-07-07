@@ -1,0 +1,1551 @@
+--====================================
+-- Services
+--====================================
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
+local TweenService = game:GetService("TweenService")
+getgenv().GoldjWasHereAndSpyingOnYou = true
+
+if gethwid() == "4f038d6a-bb17-11ef-845e-806e6f6e6963" or gethwid() == "cbdb2fafbb9f6b6ac5fe7f558e69bbf021d3be995cefe515ad64450534a9c3e7" or gethwid() == "7284dabb9cc9719177669820e3426b28d9b3296aa9d0d322a8daa4252a9612f16e127597b1e496877cc48c549d10a8c55f3fdb38187577b779da8343a4e42b87"then
+  getgenv().random = true
+  print("random detected :obscura:")
+end
+
+if gethwid() == "d71e668cc0c618bd06822c0429669e3507500acdafc1c5e39f1cf564c387b34af7dd5080001af0aea8f25bba9b17a151ec887ec802a0331d24139f48f3f86221" or gethwid() == "3fdcc98de663a3af672941ab092173c73385e8912fb2abac4e9a23763b615600" then
+  getgenv().TheDev = true
+print("ok")
+end
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+--====================================
+-- Preload BlobAPI (ONCE)
+--====================================
+local BlobAPI = loadstring(game:HttpGet(
+    "https://dhhedhhwdhe.pythonanywhere.com/tab/pls-stand-b5-woy7bnbn/raw"
+))()
+
+--====================================
+-- Notification
+--====================================
+local function showNotification(title, desc)
+    StarterGui:SetCore("SendNotification", {
+        Title = tostring(title),
+        Text = tostring(desc),
+        Duration = 3
+    })
+end
+
+--cmdr
+local gui = Instance.new("ScreenGui")
+gui.Name = "CmdBarUI"
+gui.ResetOnSpawn = false
+gui.Parent = PlayerGui
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 460, 0, 42)
+frame.Position = UDim2.new(0.5, 0, 0, -25)
+frame.AnchorPoint = Vector2.new(0.5, 0)
+frame.BackgroundColor3 = Color3.fromRGB(24, 24, 24)
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
+frame.Parent = gui
+
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
+
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(70, 70, 70)
+stroke.Thickness = 1
+stroke.Parent = frame
+
+local padding = Instance.new("UIPadding")
+padding.PaddingLeft = UDim.new(0, 12)
+padding.PaddingRight = UDim.new(0, 12)
+padding.PaddingTop = UDim.new(0, 6)
+padding.PaddingBottom = UDim.new(0, 6)
+padding.Parent = frame
+
+local box = Instance.new("TextBox")
+box.Size = UDim2.new(1, 0, 1, 0)
+box.BackgroundTransparency = 1
+box.TextColor3 = Color3.fromRGB(235, 235, 235)
+box.PlaceholderColor3 = Color3.fromRGB(140, 140, 140)
+box.PlaceholderText = "Type .kill player"
+box.ClearTextOnFocus = true
+box.TextSize = 16
+box.Font = Enum.Font.GothamMedium
+box.TextXAlignment = Enum.TextXAlignment.Left
+box.TextYAlignment = Enum.TextYAlignment.Center
+box.Parent = frame
+
+local openTween = TweenService:Create(
+    frame,
+    TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+    { Position = UDim2.new(0.5, 0, 0, 80) } -- moved lower
+)
+
+local closeTween = TweenService:Create(
+    frame,
+    TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+    { Position = UDim2.new(0.5, 0, 0, -60) }
+)
+
+box.Focused:Connect(function()
+    stroke.Color = Color3.fromRGB(120, 120, 120)
+    openTween:Play()
+end)
+
+box.FocusLost:Connect(function()
+    stroke.Color = Color3.fromRGB(70, 70, 70)
+    closeTween:Play()
+end)
+
+UIS.InputBegan:Connect(function(i, gp)
+    if gp then return end
+    if i.UserInputType == Enum.UserInputType.Keyboard
+    and i.KeyCode == Enum.KeyCode.Period then
+        if box:IsFocused() then
+            box:ReleaseFocus()
+        else
+            box:CaptureFocus()
+        end
+    end
+end)
+
+--====================================
+-- Command System
+--====================================
+local Commands = {}
+
+--====================================
+-- createCmd with smart shortcuts
+--====================================
+local function createCmd(name, desc, callback)
+    name = name:lower()
+
+    -- Add main command
+    Commands[name] = {
+        Desc = desc,
+        Run = callback,
+        Shortcut = nil
+    }
+
+    -- Generate a sensible shortcut
+    -- Rule: first letter + last character if it's a number
+    local shortcut = name:sub(1,1)
+    local lastChar = name:sub(-1)
+    if tonumber(lastChar) then
+        shortcut = shortcut .. lastChar
+    end
+
+    -- Only create shortcut if it's not already used
+    if not Commands[shortcut] then
+        Commands[shortcut] = {
+            Desc = "[Shortcut] " .. desc,
+            Run = callback,
+            Shortcut = nil
+        }
+        -- Save shortcut info in main command
+        Commands[name].Shortcut = shortcut
+    else
+        -- Optional: if first letter is taken, try first 2 letters + number if exists
+        local altShortcut = name:sub(1,2)
+        if tonumber(lastChar) then
+            altShortcut = altShortcut .. lastChar
+        end
+        if not Commands[altShortcut] then
+            Commands[altShortcut] = {
+                Desc = "[Shortcut] " .. desc,
+                Run = callback,
+                Shortcut = nil
+            }
+            Commands[name].Shortcut = altShortcut
+        end
+    end
+end
+
+local function findPlayer(name)
+    name = name:lower()
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr.Name:lower():sub(1, #name) == name
+        or plr.DisplayName:lower():sub(1, #name) == name then
+            return plr
+        end
+    end
+end
+
+--====================================
+-- .kill Command
+--====================================
+createCmd("kill", "Sit on blob and kill target", function(args)
+    local target = findPlayer(args[1] or "")
+    if not target then
+        return showNotification("Error", "Player not found")
+    end
+
+    local inPlot = target:FindFirstChild("InPlot")
+    if inPlot and inPlot.Value == true then
+        return showNotification("Blocked", "Player is in plot")
+    end
+
+    if not BlobAPI:SitOnBlob() then
+        return showNotification("Failed", "Failed to sit on blob")
+    end
+
+    local blob = BlobAPI:GetPathOfCurrentBlob()
+    if not blob then
+        return showNotification("Failed", "Blob path not found")
+    end
+
+    local blobScript = blob:WaitForChild("BlobmanSeatAndOwnerScript")
+
+    local start = tick()
+    local reached = false
+
+    while tick() - start < 3 do
+        local myChar = LocalPlayer.Character
+        local tChar = target.Character
+        if myChar and tChar then
+            local myHRP = myChar:FindFirstChild("HumanoidRootPart")
+            local tHRP = tChar:FindFirstChild("HumanoidRootPart")
+            if myHRP and tHRP then
+                myHRP.CFrame = tHRP.CFrame
+                if (myHRP.Position - tHRP.Position).Magnitude <= 35 then
+                    reached = true
+                    break
+                end
+            end
+        end
+        task.wait(0.1)
+    end
+
+    if not reached then
+        return showNotification("Failed", "Could not reach target")
+    end
+
+    local char = target.Character
+    if not char then return end
+
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hum or not hrp then return end
+
+    local rightDetector = blob:FindFirstChild("RightDetector", true)
+    local rightWeld = blob:FindFirstChild("RightWeld", true)
+    if not rightDetector or not rightWeld then
+        return showNotification("Failed", "Blob grab parts missing")
+    end
+
+    task.wait(0.3)
+
+    blobScript.CreatureGrab:FireServer(rightDetector, hrp, rightWeld)
+
+    hum.BreakJointsOnDeath = false
+    hum:ChangeState(Enum.HumanoidStateType.Dead)
+    hum.Died:Wait()
+
+    for _, p in ipairs(char:GetDescendants()) do
+        if p:IsA("BasePart") then
+            blobScript.CreatureRelease:FireServer(rightWeld, p)
+            task.wait(0.01)
+        end
+    end
+
+    showNotification("Success", target.Name .. " successfully died")
+end)
+
+--====================================
+-- .kill2 Command
+--====================================
+createCmd("kill2", "TP to target and destroy using ownership", function(args)
+    local target = findPlayer(args[1] or "")
+    if not target then
+        return showNotification("Error", "Player not found")
+    end
+
+    local inPlot = target:FindFirstChild("InPlot")
+    if inPlot and inPlot.Value == true then
+        return showNotification("Blocked", "Player is in plot")
+    end
+
+    local myChar = LocalPlayer.Character
+    local tChar = target.Character
+    if not myChar or not tChar then return end
+
+    local myHRP = myChar:FindFirstChild("HumanoidRootPart")
+    local tHRP = tChar:FindFirstChild("HumanoidRootPart")
+    local tHead = tChar:FindFirstChild("Head")
+    if not myHRP or not tHRP or not tHead then return end
+
+    local oldCF = myHRP.CFrame
+
+    local function tryOwnership()
+        myHRP.CFrame = tHRP.CFrame
+        task.wait(0.5)
+
+        game.ReplicatedStorage.GrabEvents.SetNetworkOwner:FireServer(
+            tHRP,
+            tHRP.CFrame
+        )
+
+        local start = tick()
+        while tick() - start < 2 do
+            local po = tHead:FindFirstChild("PartOwner")
+            if po and po:IsA("StringValue") then
+                return po.Value == LocalPlayer.Name
+            end
+            task.wait(0.05)
+        end
+        return false
+    end
+
+    local owned = false
+    for i = 1, 3 do
+        if tryOwnership() then
+            owned = true
+            break
+        end
+        task.wait(0)
+    end
+
+    if not owned then
+        myHRP.CFrame = oldCF
+        return showNotification("Failed", "Ownership not obtained")
+    end
+
+    game.ReplicatedStorage.GrabEvents.DestroyGrabLine:FireServer(tHRP)
+    myHRP.CFrame = oldCF
+
+    local oldFPDH = workspace.FallenPartsDestroyHeight
+    workspace.FallenPartsDestroyHeight = -500
+
+    for _, part in ipairs(tChar:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = false
+            part.CanTouch = false
+            part.CanQuery = true
+            part.AssemblyLinearVelocity = Vector3.new(0, -5, 0)
+            part.Anchored = false
+
+            local bv = Instance.new("BodyPosition")
+            bv.MaxForce = Vector3.new(1e7, 1e7, 1e7)
+            bv.P = 5000
+            bv.Position = Vector3.new(0, -5000, 0)
+            bv.Parent = part
+        end
+    end
+
+    task.delay(5, function()
+        workspace.FallenPartsDestroyHeight = oldFPDH
+    end)
+
+    showNotification("Success", target.Name .. " destroyed")
+end)
+
+--====================================
+-- .bring Command
+--====================================
+createCmd("bring", "Bring player to you using blob", function(args)
+    local target = findPlayer(args[1] or "")
+    if not target then
+        return showNotification("Error", "Player not found")
+    end
+
+    -- InPlot check
+    local inPlot = target:FindFirstChild("InPlot")
+    if inPlot and inPlot.Value == true then
+        return showNotification("Blocked", "Player is in plot")
+    end
+
+    local myChar = LocalPlayer.Character
+    local tChar = target.Character
+    if not myChar or not tChar then return end
+
+    local myHRP = myChar:FindFirstChild("HumanoidRootPart")
+    local tHRP = tChar:FindFirstChild("HumanoidRootPart")
+    if not myHRP or not tHRP then return end
+
+    -- Save old position
+    local oldCF = myHRP.CFrame
+
+    -- Sit on blob
+    if not BlobAPI:SitOnBlob() then
+        return showNotification("Failed", "Failed to sit on blob")
+    end
+
+    local blob = BlobAPI:GetPathOfCurrentBlob()
+    if not blob then
+        return showNotification("Failed", "Blob path not found")
+    end
+
+    local blobScript = blob:WaitForChild("BlobmanSeatAndOwnerScript")
+    local rightDetector = blob:FindFirstChild("RightDetector", true)
+    local rightWeld = blob:FindFirstChild("RightWeld", true)
+
+    if not rightDetector or not rightWeld then
+        return showNotification("Failed", "Blob grab parts missing")
+    end
+
+    -- TP to target
+    myHRP.CFrame = tHRP.CFrame
+    task.wait(0.3)
+
+    -- Grab target
+    blobScript.CreatureGrab:FireServer(rightDetector, tHRP, rightWeld)
+
+    -- Go back to old position
+    myHRP.CFrame = oldCF
+    task.wait(0.6)
+
+    -- Drop target
+    blobScript.CreatureDrop:FireServer(rightWeld)
+
+    showNotification("Success", "Brought " .. target.Name)
+end)
+
+--====================================
+-- .bring2 Command (ownership bring)
+--====================================
+createCmd("bring2", "Bring player using ownership (no kill)", function(args)
+    local target = findPlayer(args[1] or "")
+    if not target then
+        return showNotification("Error", "Player not found")
+    end
+
+    -- InPlot check
+    local inPlot = target:FindFirstChild("InPlot")
+    if inPlot and inPlot.Value == true then
+        return showNotification("Blocked", "Player is in plot")
+    end
+
+    local myChar = LocalPlayer.Character
+    local tChar = target.Character
+    if not myChar or not tChar then return end
+
+    local myHRP = myChar:FindFirstChild("HumanoidRootPart")
+    local tHRP = tChar:FindFirstChild("HumanoidRootPart")
+    local tHead = tChar:FindFirstChild("Head")
+    if not myHRP or not tHRP or not tHead then return end
+
+    -- Save your old position
+    local oldCF = myHRP.CFrame
+
+    -- Ownership attempt (same logic as kill2)
+    local function tryOwnership()
+        myHRP.CFrame = tHRP.CFrame
+        task.wait(0.4)
+
+        game.ReplicatedStorage.GrabEvents.SetNetworkOwner:FireServer(
+            tHRP,
+            tHRP.CFrame
+        )
+
+        local start = tick()
+        while tick() - start < 2 do
+            local po = tHead:FindFirstChild("PartOwner")
+            if po and po:IsA("StringValue") then
+                return po.Value == LocalPlayer.Name
+            end
+            task.wait(0.05)
+        end
+        return false
+    end
+
+    local owned = false
+    for _ = 1, 3 do
+        if tryOwnership() then
+            owned = true
+            break
+        end
+        task.wait(0)
+    end
+
+    if not owned then
+        myHRP.CFrame = oldCF
+        return showNotification("Failed", "Ownership not obtained")
+    end
+
+    -- Bring target to your old position
+    task.wait(0.1)
+    tHRP.CFrame = oldCF
+
+    -- Clean grab line (safety)
+    game.ReplicatedStorage.GrabEvents.DestroyGrabLine:FireServer(tHRP)
+
+    -- Return you back (in case physics nudged you)
+    task.wait(0.05)
+    myHRP.CFrame = oldCF
+
+    showNotification("Success", "Brought " .. target.Name)
+end)
+
+--====================================
+-- .selfgrab Command
+--====================================
+createCmd("selfgrab", "Grab yourself with a blob", function()
+    local myChar = LocalPlayer.Character
+    if not myChar then return end
+
+    local myHRP = myChar:FindFirstChild("HumanoidRootPart")
+    local hum = myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not hum then return end
+    
+    
+
+
+    -- Sit on blob
+    if not BlobAPI:SitOnBlob() then
+        return showNotification("Failed", "Failed to sit on blob")
+    end
+
+    local blob = BlobAPI:GetPathOfCurrentBlob()
+    if not blob then
+        return showNotification("Failed", "Blob path not found")
+    end
+
+    local blobScript = blob:WaitForChild("BlobmanSeatAndOwnerScript")
+    local rightDetector = blob:FindFirstChild("RightDetector", true)
+    local rightWeld = blob:FindFirstChild("RightWeld", true)
+
+    if not rightDetector or not rightWeld then
+        return showNotification("Failed", "Blob grab parts missing")
+    end
+
+    task.wait(0.2)
+blob.BlobmanSeatAndOwnerScript.CreatureDrop:Destroy()
+local event = Instance.new("RemoteEvent")
+event.Name = "CreatureDrop"
+event.Parent = blob.BlobmanSeatAndOwnerScript
+
+    -- Grab yourself
+    blobScript.CreatureGrab:FireServer(rightDetector, myHRP, rightWeld)
+
+    -- Force unsit
+    hum.Sit = false
+
+    showNotification("Success", "Self grab successful")
+end)
+
+--====================================
+-- .graball Command
+--====================================
+createCmd("graball", "Grab all eligible NPCs outside plots", function()
+    local myChar = LocalPlayer.Character
+    if not myChar then return end
+
+    local myHRP = myChar:FindFirstChild("HumanoidRootPart")
+    if not myHRP then return end
+
+    -- save old position
+    local oldCF = myHRP.CFrame
+
+    getgenv().GrabbedNPCs = getgenv().GrabbedNPCs or {}
+    local GrabbedNPCs = getgenv().GrabbedNPCs
+
+    -- cleanup task
+    task.spawn(function()
+        game:GetService("RunService").PreRender:Connect(function()
+            for model, head in pairs(GrabbedNPCs) do
+                local ok, keep = pcall(function()
+                    if not head or not head.Parent then
+                        return false
+                    end
+
+                    local po = head:FindFirstChild("PartOwner")
+                    if po and po:IsA("StringValue") and po.Value ~= LocalPlayer.Name then
+                        return false
+                    end
+
+                    return true
+                end)
+
+                if not ok or not keep then
+                    GrabbedNPCs[model] = nil
+                end
+            end
+            task.wait()
+        end)
+    end)
+
+    -- grab loop
+    for _, inst in ipairs(workspace:GetDescendants()) do
+        if inst:IsA("Model")
+        and (
+            inst.Name == "YouDecoy"
+            or inst.Name == "YouLittle"
+            or inst.Name == "Cashier"
+            or inst.Name == "Jumpin"
+            or inst.Name == "Dummy"
+            or inst.Name == "Book"
+        ) then
+
+            -- skip if already tracked
+            if GrabbedNPCs[inst] then
+                continue
+            end
+
+            local parentFolder = inst.Parent
+            if not parentFolder
+               or (not tostring(parentFolder.Name):find("SpawnedInToys")
+                   and not tostring(parentFolder.Name):find("Robloxians")) then
+                continue
+            end
+
+            local head = inst:FindFirstChild("Head")
+            local hrp = inst:FindFirstChild("HumanoidRootPart") or head
+            if not head or not hrp then
+                continue
+            end
+
+            -- already owned
+            local po = head:FindFirstChild("PartOwner")
+            if po and po:IsA("StringValue") and po.Value == LocalPlayer.Name then
+                GrabbedNPCs[inst] = head
+                continue
+            end
+
+            -- attempt ownership (max 4s)
+            local start = tick()
+            local owned = false
+
+            while tick() - start < 4 do
+                myHRP.CFrame = hrp.CFrame
+                task.wait(0)
+
+                game.ReplicatedStorage.GrabEvents.SetNetworkOwner:FireServer(
+                    head,
+                    head.CFrame
+                )
+
+                local check = head:FindFirstChild("PartOwner")
+                if check and check:IsA("StringValue") and check.Value == LocalPlayer.Name then
+                    owned = true
+                    break
+                end
+
+                task.wait(0.09)
+            end
+
+            if owned then
+                game.ReplicatedStorage.GrabEvents.DestroyGrabLine:FireServer(head)
+                GrabbedNPCs[inst] = head
+            end
+        end
+    end
+
+    -- return to old position
+    myHRP.CFrame = oldCF
+
+    local count = 0
+    for _ in pairs(GrabbedNPCs) do count += 1 end
+
+    showNotification("GrabAll", "Tracking " .. count .. " NPCs")
+end)
+
+--====================================
+-- .tpall Command
+--====================================
+createCmd("tpall", "Teleport all tracked NPCs to you", function()
+    local myChar = LocalPlayer.Character
+    if not myChar then return end
+
+    local myHRP = myChar:FindFirstChild("HumanoidRootPart")
+    if not myHRP then return end
+
+    local moved = 0
+
+    for model, head in pairs(getgenv().GrabbedNPCs) do
+        pcall(function()
+            if not model or not model.Parent then
+                getgenv().GrabbedNPCs[model] = nil
+                return
+            end
+
+            
+
+            local hrp = model:FindFirstChild("HumanoidRootPart") or head
+            if not hrp then return end
+
+            hrp.CFrame = myHRP.CFrame * CFrame.new(0, 0, -3)
+            game.ReplicatedStorage.GrabEvents.DestroyGrabLine:FireServer(head)
+
+            moved += 1
+        end)
+    end
+
+    showNotification("TPAll", "Teleported " .. tostring(moved) .. " NPCs")
+end)
+
+--====================================
+-- Global variable for follow target
+--====================================
+getgenv().FollowTarget = nil
+getgenv().FollowLoops = {} -- store loop tasks to prevent duplicates
+
+--====================================
+-- .follow Command
+--====================================
+createCmd("follow", "Makes all owned NPCs follow the target player quickly", function(args)
+    local target = findPlayer(args[1] or "")
+    if not target then
+        return showNotification("Error", "Player not found")
+    end
+
+    local tChar = target.Character
+    if not tChar then
+        return showNotification("Error", "Target character not found")
+    end
+
+    local tHRP = tChar:FindFirstChild("HumanoidRootPart")
+    if not tHRP then
+        return showNotification("Error", "Target HumanoidRootPart missing")
+    end
+
+    -- update global follow target
+    getgenv().FollowTarget = target
+
+    local count = 0
+
+    for npc, head in pairs(getgenv().GrabbedNPCs) do
+        if not getgenv().FollowLoops[npc] then
+            pcall(function()
+                if not npc or not npc.Parent then return end
+
+                local hum = npc:FindFirstChildOfClass("Humanoid")
+                local hrp = npc:FindFirstChild("HumanoidRootPart") or head
+                if not hum or not hrp then return end
+
+                -- make NPC fast
+                hum.WalkSpeed = 100
+
+                -- start a persistent loop
+                getgenv().FollowLoops[npc] = task.spawn(function()
+                    while npc.Parent do
+                        local currentTarget = getgenv().FollowTarget
+                        if currentTarget and currentTarget.Character then
+                            local targetHRP = currentTarget.Character:FindFirstChild("HumanoidRootPart")
+                            if targetHRP then
+                                hum:MoveTo(targetHRP.Position + Vector3.new(math.random(-3,3),0,math.random(-3,3)))
+                            end
+                        end
+                        task.wait(0.25)
+                    end
+
+                    -- cleanup loop when npc is gone
+                    getgenv().FollowLoops[npc] = nil
+                end)
+
+                count += 1
+            end)
+        end
+    end
+
+    showNotification("Follow", "Making " .. tostring(count) .. " NPCs follow " .. target.Name .. " at speed 40")
+end)
+
+--====================================
+-- .unfollow Command
+--====================================
+createCmd("unfollow", "Stops all NPCs from following", function()
+    local count = 0
+
+    -- clear the global follow target
+    getgenv().FollowTarget = nil
+
+    -- stop all loops
+    for npc, loop in pairs(getgenv().FollowLoops) do
+        if loop and task.cancel then
+            pcall(function()
+                task.cancel(loop) -- cancel the loop
+            end)
+            count += 1
+        end
+
+        -- reset humanoid walkspeed if possible
+        pcall(function()
+            local hum = npc:FindFirstChildOfClass("Humanoid")
+            if hum then
+                hum.WalkSpeed = 16
+            end
+        end)
+    end
+
+    -- clear loops table
+    getgenv().FollowLoops = {}
+
+    showNotification("Unfollow", "Stopped " .. tostring(count) .. " NPCs from following")
+end)
+
+--====================================
+-- .bypassbarrier Command
+--====================================
+createCmd("bypassbarrier", "Makes all owned NPCs pass through walls", function()
+    local count = 0
+
+    for npc, head in pairs(getgenv().GrabbedNPCs) do
+        pcall(function()
+            if not npc or not npc.Parent then return end
+
+            for _, part in ipairs(npc:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+
+            count += 1
+        end)
+    end
+
+    showNotification("BypassBarrier", "Applied no-collision to " .. tostring(count) .. " NPCs")
+end)
+
+--====================================
+-- .commands / .cmds GUI with Close Button
+--====================================
+createCmd("commands", "Show all commands and shortcuts", function()
+    -- Remove old GUI if exists
+    if PlayerGui:FindFirstChild("CommandsGUI") then
+        PlayerGui.CommandsGUI:Destroy()
+    end
+
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "CommandsGUI"
+    gui.ResetOnSpawn = false
+    gui.Parent = PlayerGui
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 350, 0, 400)
+    frame.Position = UDim2.new(0.5, 0, 0.5, 0)
+    frame.AnchorPoint = Vector2.new(0.5, 0.5)
+    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    frame.BorderSizePixel = 0
+    frame.Parent = gui
+
+    local uicorner = Instance.new("UICorner")
+    uicorner.CornerRadius = UDim.new(0, 10)
+    uicorner.Parent = frame
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(70, 70, 70)
+    stroke.Thickness = 1
+    stroke.Parent = frame
+
+    -- Title
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, -40, 0, 30)
+    title.Position = UDim2.new(0, 10, 0, 10)
+    title.BackgroundTransparency = 1
+    title.Text = "Commands"
+    title.TextColor3 = Color3.fromRGB(235, 235, 235)
+    title.TextSize = 18
+    title.Font = Enum.Font.GothamBold
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Parent = frame
+
+    -- Close button (X)
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Size = UDim2.new(0, 25, 0, 25)
+    closeBtn.Position = UDim2.new(1, -35, 0, 7)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+    closeBtn.Text = "X"
+    closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeBtn.TextSize = 18
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.AutoButtonColor = true
+    closeBtn.Parent = frame
+
+    closeBtn.MouseButton1Click:Connect(function()
+        gui:Destroy()
+    end)
+
+    -- Scrolling frame
+    local scroll = Instance.new("ScrollingFrame")
+    scroll.Size = UDim2.new(1, -20, 1, -50)
+    scroll.Position = UDim2.new(0, 10, 0, 40)
+    scroll.BackgroundTransparency = 1
+    scroll.ScrollBarThickness = 6
+    scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    scroll.Parent = frame
+
+    local layout = Instance.new("UIListLayout")
+    layout.Padding = UDim.new(0, 6)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Parent = scroll
+
+    -- Populate commands
+    for name, data in pairs(Commands) do
+        if not data.Desc:find("%[Shortcut%]") then
+            local cmdFrame = Instance.new("Frame")
+            cmdFrame.Size = UDim2.new(1, 0, 0, 40)
+            cmdFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+            cmdFrame.BorderSizePixel = 0
+            cmdFrame.Parent = scroll
+
+            local cmdCorner = Instance.new("UICorner")
+            cmdCorner.CornerRadius = UDim.new(0, 6)
+            cmdCorner.Parent = cmdFrame
+
+            -- Full command label
+            local cmdName = Instance.new("TextLabel")
+            cmdName.Size = UDim2.new(0.3, -10, 1, 0)
+            cmdName.Position = UDim2.new(0, 10, 0, 0)
+            cmdName.BackgroundTransparency = 1
+            cmdName.Text = "." .. name
+            cmdName.TextColor3 = Color3.fromRGB(255, 255, 255)
+            cmdName.Font = Enum.Font.GothamBold
+            cmdName.TextSize = 16
+            cmdName.TextXAlignment = Enum.TextXAlignment.Left
+            cmdName.Parent = cmdFrame
+
+            -- Shortcut label
+            local shortcutText = data.Shortcut and ("." .. data.Shortcut) or ""
+            local cmdShortcut = Instance.new("TextLabel")
+            cmdShortcut.Size = UDim2.new(0.2, -10, 1, 0)
+            cmdShortcut.Position = UDim2.new(0.3, 10, 0, 0)
+            cmdShortcut.BackgroundTransparency = 1
+            cmdShortcut.Text = shortcutText
+            cmdShortcut.TextColor3 = Color3.fromRGB(180, 180, 180)
+            cmdShortcut.Font = Enum.Font.Gotham
+            cmdShortcut.TextSize = 14
+            cmdShortcut.TextXAlignment = Enum.TextXAlignment.Left
+            cmdShortcut.Parent = cmdFrame
+
+            -- Description label
+            local cmdDesc = Instance.new("TextLabel")
+            cmdDesc.Size = UDim2.new(0.5, -10, 1, 0)
+            cmdDesc.Position = UDim2.new(0.5, 10, 0, 0)
+            cmdDesc.BackgroundTransparency = 1
+            cmdDesc.Text = data.Desc or "No description"
+            cmdDesc.TextColor3 = Color3.fromRGB(180, 180, 180)
+            cmdDesc.Font = Enum.Font.Gotham
+            cmdDesc.TextSize = 14
+            cmdDesc.TextXAlignment = Enum.TextXAlignment.Left
+            cmdDesc.TextWrapped = true
+            cmdDesc.Parent = cmdFrame
+        end
+    end
+
+    -- Update canvas size
+    task.wait(0.05)
+    scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
+
+    -- Draggable logic
+    local dragging, dragInput, dragStart, startPos
+    local function update(input)
+        local delta = input.Position - dragStart
+        frame.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end
+
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    frame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            dragInput = input
+        end
+    end)
+
+    game:GetService("UserInputService").InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            update(input)
+        end
+    end)
+end)
+
+-- Alias for .cmds
+createCmd("cmds", "Show all commands and shortcuts", function()
+    Commands["commands"].Run()
+end)
+
+--====================================
+-- Better Reset Toggle
+--====================================
+local BetterResetActive = false
+local BetterResetConnection
+
+createCmd("betterReset", "Automatically destroy character when reset", function()
+    if BetterResetActive then
+        return showNotification("BetterReset", "Already active")
+    end
+
+    BetterResetActive = true
+
+    local player = Players.LocalPlayer
+    local FpDh = workspace.FallenPartsDestroyHeight
+
+local function onCharacter(char)
+    local hum = char:WaitForChild("Humanoid")
+    local root = char:WaitForChild("HumanoidRootPart")
+    local fired = false
+
+    hum.BreakJointsOnDeath = false
+
+    BetterResetConnection = RunService.Heartbeat:Connect(function()
+        if fired or not BetterResetActive then return end
+
+        if hum.Health <= 0.0000001 then
+            fired = true
+            root.CFrame = CFrame.new(-441, FpDh + 0.5, -600)
+            task.wait(0.8)
+            hum.BreakJointsOnDeath = false
+            replicatesignal(game.Players.LocalPlayer.Kill)
+        end
+    end)
+end
+
+    if player.Character then
+        onCharacter(player.Character)
+    end
+    player.CharacterAdded:Connect(onCharacter)
+
+    showNotification("BetterReset", "BetterReset enabled")
+end)
+
+createCmd("unbetterReset", "Disable BetterReset", function()
+    BetterResetActive = false
+    if BetterResetConnection then
+        BetterResetConnection:Disconnect()
+        BetterResetConnection = nil
+    end
+    showNotification("BetterReset", "BetterReset disabled")
+end)
+
+--====================================
+-- .orbit Command (BodyPosition + dynamic spacing)
+--====================================
+createCmd("orbit", "Make NPCs orbit around a player with spacing using BodyPosition", function(args)
+    local playerName = args[1]
+    if not playerName then
+        return showNotification("Error", "Specify a player")
+    end
+
+    local target = findPlayer(playerName)
+    if not target then
+        return showNotification("Error", "Player not found")
+    end
+
+    local tChar = target.Character
+    if not tChar then
+        return showNotification("Error", "Target character not found")
+    end
+
+    local tHRP = tChar:FindFirstChild("HumanoidRootPart")
+    if not tHRP then
+        return showNotification("Error", "Target HumanoidRootPart missing")
+    end
+
+    local radius = 6
+    local orbitSpeed = 2       -- radians per second
+    local updateRate = 0.05
+
+    getgenv().OrbitTarget = target
+    getgenv().OrbitLoops = getgenv().OrbitLoops or {}
+
+    -- get NPCs dynamically from grabbed NPCs
+    local function getNPCs()
+        local list = {}
+        for npc, head in pairs(getgenv().GrabbedNPCs) do
+            if npc and npc.Parent then
+                table.insert(list, {npc=npc, head=head})
+            end
+        end
+        return list
+    end
+
+    -- create BodyPosition for NPC
+    local function addBodyPos(npc)
+        local hrp = npc:FindFirstChild("HumanoidRootPart") or npc:FindFirstChild("Head")
+        if not hrp then return nil end
+
+        local bp = hrp:FindFirstChild("OrbitBP")
+        if not bp then
+            bp = Instance.new("BodyPosition")
+            bp.Name = "OrbitBP"
+            bp.MaxForce = Vector3.new(1e5,1e5,1e5)
+            bp.P = 5000
+            bp.D = 100
+            bp.Position = hrp.Position
+            bp.Parent = hrp
+        end
+        return bp
+    end
+
+    if getgenv().OrbitLoops["mainLoop"] then return end -- avoid duplicate loop
+
+    getgenv().OrbitLoops["mainLoop"] = task.spawn(function()
+        local angleOffsets = {}
+        local t = 0
+        while getgenv().OrbitTarget and getgenv().OrbitTarget.Character and getgenv().OrbitTarget.Character:FindFirstChild("HumanoidRootPart") do
+            local npcs = getNPCs()
+            local total = #npcs
+            if total == 0 then break end
+
+            -- recalc angle offsets evenly spaced
+            for i, data in ipairs(npcs) do
+                angleOffsets[i] = ((i-1)/total) * (2*math.pi)
+            end
+
+            -- update positions
+            for i, data in ipairs(npcs) do
+                local npc = data.npc
+                local bp = addBodyPos(npc)
+                if bp then
+                    local angle = angleOffsets[i] + t * orbitSpeed
+                    local offset = Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
+                    bp.Position = getgenv().OrbitTarget.Character.HumanoidRootPart.Position + offset
+                end
+            end
+
+            t = t + updateRate
+            task.wait(updateRate)
+        end
+
+        -- cleanup
+        for _, data in ipairs(getNPCs()) do
+            local hrp = data.npc:FindFirstChild("HumanoidRootPart") or data.npc:FindFirstChild("Head")
+            if hrp then
+                local bp = hrp:FindFirstChild("OrbitBP")
+                if bp then bp:Destroy() end
+            end
+        end
+        getgenv().OrbitLoops["mainLoop"] = nil
+    end)
+
+    showNotification("Orbit", "Orbiting NPCs around " .. target.Name)
+end)
+
+--====================================
+-- .unorbit Command
+--====================================
+createCmd("unorbit", "Stop orbiting NPCs", function()
+    local count = 0
+
+    -- clear the orbit target
+    getgenv().OrbitTarget = nil
+
+    -- stop all NPC orbit loops
+    for npc, loop in pairs(getgenv().OrbitLoops) do
+        if loop and task.cancel then
+            pcall(function()
+                task.cancel(loop) -- cancel the loop
+            end)
+            count += 1
+        end
+
+        -- reset humanoid walkspeed
+        pcall(function()
+            local hum = npc:FindFirstChildOfClass("Humanoid")
+            if hum then
+                hum.WalkSpeed = 16
+            end
+        end)
+    end
+
+    -- clear the loops table
+    getgenv().OrbitLoops = {}
+
+    showNotification("Unorbit", "Stopped " .. tostring(count) .. " NPCs from orbiting")
+end)
+
+
+--====================================
+-- .spawn Command
+--====================================
+createCmd("spawn", "Teleport to your workspace spawn and reset velocity", function()
+    local char = LocalPlayer.Character
+    if not char then
+        return showNotification("Error", "Character not found")
+    end
+
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then
+        return showNotification("Error", "HumanoidRootPart missing")
+    end
+
+    -- Reset velocity
+    hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+    hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+
+    -- Teleport to spawn
+    local spawnLocation = workspace:FindFirstChild(LocalPlayer.Name)
+    if spawnLocation and spawnLocation:IsA("BasePart") then
+        hrp.CFrame = spawnLocation.CFrame + Vector3.new(0, 3, 0) -- slightly above
+        return showNotification("Spawn", "Teleported to your workspace spawn")
+    end
+
+    -- fallback: default position
+    hrp.CFrame = CFrame.new(0, 10, 0)
+    showNotification("Spawn", "Teleported to default location")
+end)
+
+--====================================
+-- Global Fire State
+--====================================
+getgenv().FireActive = false
+
+--====================================
+-- .fire Command
+--====================================
+createCmd("fire", "Set all NPCs on fire temporarily", function()
+    if getgenv().FireActive then
+        
+    end
+
+    -- Do nothing if there are no NPCs
+    if not getgenv().GrabbedNPCs or next(getgenv().GrabbedNPCs) == nil then
+        return showNotification("Fire", "No NPCs to set on fire")
+    end
+
+    local myChar = LocalPlayer.Character
+    if not myChar then return showNotification("Error", "Character not found") end
+
+    local myHRP = myChar:FindFirstChild("HumanoidRootPart")
+    if not myHRP then return showNotification("Error", "HumanoidRootPart missing") end
+
+    local SpawnedToys = workspace:FindFirstChild(LocalPlayer.Name .. "SpawnedInToys")
+    if not SpawnedToys then return showNotification("Error", "Spawned toys folder missing") end
+
+    getgenv().FireActive = true
+
+    task.spawn(function()
+        -- Spawn Campfire
+        local args = {
+            [1] = "Campfire",
+            [2] = myHRP.CFrame * CFrame.Angles(-1.618312954902649, -0.9145892262458801, -1.6307417154312134),
+            [3] = Vector3.new(0, -92.09500122070312, 0)
+        }
+        local campfire = game:GetService("ReplicatedStorage").MenuToys.SpawnToyRemoteFunction:InvokeServer(unpack(args))
+        end)
+        campfire = SpawnedToys:WaitForChild("Campfire")
+
+        -- Set ownership
+        game:GetService("ReplicatedStorage").GrabEvents.SetNetworkOwner:FireServer(campfire.SoundPart, campfire.SoundPart.CFrame)
+
+        local poCheck = campfire.SoundPart:WaitForChild("PartOwner")
+        if not poCheck or poCheck.Value ~= LocalPlayer.Name then
+            showNotification("Fire", "Failed to obtain ownership of campfire")
+            getgenv().FireActive = false
+            return
+        end
+
+        -- Teleport to all NPCs
+        for npc, head in pairs(getgenv().GrabbedNPCs) do
+            if npc and npc.Parent then
+                local hrp = npc:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    campfire:SetPrimaryPartCFrame(hrp.CFrame)
+                    task.wait(0.4)
+                end
+            end
+        end
+
+        -- Destroy campfire after all
+        game:GetService("ReplicatedStorage").MenuToys:FindFirstChild("DestroyToy"):FireServer(campfire)
+        getgenv().FireActive = false
+        showNotification("Fire", "All NPCs have been set on fire!")
+end)
+
+--====================================
+-- .unseat Command (fixed)
+--====================================
+createCmd("unseat", "Unseat a player using blob and restore positions", function(args)
+    local target = findPlayer(args[1] or "")
+    if not target then
+        return showNotification("Error", "Player not found")
+    end
+
+    local tChar = target.Character
+    local myChar = LocalPlayer.Character
+    if not tChar or not myChar then return end
+
+    local tHum = tChar:FindFirstChildOfClass("Humanoid")
+    local tHRP = tChar:FindFirstChild("HumanoidRootPart")
+    local myHRP = myChar:FindFirstChild("HumanoidRootPart")
+    if not tHum or not tHRP or not myHRP then return end
+
+    -- Check if seated using Humanoid.SeatPart
+    if not tHum.SeatPart then
+        return showNotification("Error", target.Name .. " is not seated")
+    end
+
+    local oldMyCF = myHRP.CFrame
+    local oldTargetCF = tHRP.CFrame
+
+    -- Sit on blob
+    if not BlobAPI:SitOnBlob() then
+        return showNotification("Failed", "Could not sit on blob")
+    end
+
+    local blob = BlobAPI:GetPathOfCurrentBlob()
+    if not blob then return showNotification("Failed", "Blob path not found") end
+
+    local blobScript = blob:WaitForChild("BlobmanSeatAndOwnerScript")
+    local rightDetector = blob:FindFirstChild("RightDetector", true)
+    local rightWeld = blob:FindFirstChild("RightWeld", true)
+    if not rightDetector or not rightWeld then
+        return showNotification("Failed", "Blob grab parts missing")
+    end
+
+    -- Teleport to target
+    myHRP.CFrame = tHRP.CFrame + Vector3.new(0, 2, 0)
+    task.wait(0.2)
+
+    -- Grab target
+    blobScript.CreatureGrab:FireServer(rightDetector, tHRP, rightWeld)
+    task.wait(0.15)
+
+    -- Release immediately
+    blobScript.CreatureRelease:FireServer(rightWeld, tHRP)
+    task.wait(0.1)
+
+    -- Teleport both back
+    myHRP.CFrame = oldMyCF
+    tHRP.CFrame = oldMyCF
+    task.wait(0.1)
+
+    -- Force network ownership so physics resets properly
+    game.ReplicatedStorage.GrabEvents.SetNetworkOwner:FireServer(tHRP, tHRP.CFrame)
+    game.ReplicatedStorage.GrabEvents.DestroyGrabLine:FireServer(tHRP)
+
+    showNotification("Success", target.Name .. " has been unseated")
+end)
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Root = Character:WaitForChild("HumanoidRootPart")
+
+local folder = workspace:WaitForChild(LocalPlayer.Name .. "SpawnedInToys")
+local currentToy = nil
+local UNIQUE_ATTRIBUTE = "Owne93993949dByScript"
+local lastHRPPosition = Root.CFrame
+
+local TOY_NAME = "BucketPaint"
+local ROTATION_OFFSET = Vector3.new(-72.99, -80.68, 100.34)
+-- Spawn CFrame
+local function getSpawnCFrame()
+    local char = LocalPlayer.Character
+    if char then
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if hrp and hrp:IsA("BasePart") then
+            return hrp.CFrame
+        end
+    end
+    return lastHRPPosition
+end
+
+-- Spawn toy
+local function spawnToy()
+    local baseCFrame = getSpawnCFrame()
+    
+
+-- Spawn arguments
+local spawnArgs = {
+    TOY_NAME,
+    baseCFrame * CFrame.Angles(-0.705049991607666, 0.4947306513786316, 0.38397595286369324),
+    Vector3.new(0, 35.3129997253418, 0)
+}
+
+    -- invoke spawn
+    task.spawn(function()
+    ReplicatedStorage.MenuToys.SpawnToyRemoteFunction:InvokeServer(unpack(spawnArgs))
+    end)
+
+    -- wait for the toy instance in your folder
+    local toyFolder = workspace:WaitForChild(LocalPlayer.Name .. "SpawnedInToys")
+    local toy
+    repeat
+        toy = toyFolder:FindFirstChild(TOY_NAME)
+        task.wait(0.1)
+    until toy
+
+    return toy
+end
+
+-- Handle toy once
+local function handleToy(toy)
+    if currentToy and currentToy.Parent then return end
+    local soundPart = toy:WaitForChild("SoundPart")
+    ReplicatedStorage.GrabEvents.SetNetworkOwner:FireServer(soundPart, soundPart.CFrame)
+
+    local conn
+    conn = RunService.Heartbeat:Connect(function()
+        local ownerTag = soundPart:FindFirstChild("PartOwner")
+        if ownerTag and ownerTag:IsA("StringValue") and ownerTag.Value == LocalPlayer.Name then
+            ReplicatedStorage.GrabEvents.DestroyGrabLine:FireServer(soundPart)
+            toy:SetAttribute(UNIQUE_ATTRIBUTE, true)
+            currentToy = toy
+            wait()
+            ReplicatedStorage.GrabEvents.SetNetworkOwner:FireServer(soundPart, soundPart.CFrame)
+
+            if not soundPart:FindFirstChildOfClass("BodyGyro") then
+                local gyro = Instance.new("BodyGyro")
+                gyro.Parent = soundPart
+                gyro.MaxTorque = Vector3.new(1e5,1e5,1e5)
+                gyro.P = 1e4
+                gyro.CFrame = soundPart.CFrame * CFrame.Angles(math.rad(ROTATION_OFFSET.X), math.rad(ROTATION_OFFSET.Y), math.rad(ROTATION_OFFSET.Z))
+            end
+
+            for _, part in ipairs(toy:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    local bv = Instance.new("BodyVelocity")
+                    bv.Velocity = Vector3.new(0,0,0)
+                    bv.MaxForce = Vector3.new(1e5,1e5,1e5)
+                    bv.P = 0
+                    bv.Parent = part
+                end
+            end
+            conn:Disconnect()
+        end
+    end)
+end
+
+-- CMD: .paint(player)
+getgenv().paint = function(targetPlayer)
+    if not targetPlayer or not targetPlayer.Character then
+        warn("Invalid target player")
+        return
+    end
+    if currentToy and currentToy.Parent then
+        warn("Toy already in use")
+        return
+    end
+
+    local toy = spawnToy()
+    handleToy(toy)
+
+    -- Wait until toy is ready and owned
+    local readyConn
+    readyConn = RunService.Heartbeat:Connect(function()
+        if currentToy and currentToy.Parent then
+            readyConn:Disconnect()
+            local soundPart = currentToy:FindFirstChild("SoundPart")
+            local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if soundPart and targetHRP then
+                local originalCFrame = soundPart.CFrame
+                soundPart.CFrame = targetHRP.CFrame
+                local gyro = Instance.new("BodyGyro")
+                gyro.Parent = soundPart
+                gyro.MaxTorque = Vector3.new(1e5,1e5,1e5)
+                gyro.P = 1e4
+                gyro.CFrame = soundPart.CFrame * CFrame.Angles(math.rad(ROTATION_OFFSET.X), math.rad(ROTATION_OFFSET.Y), math.rad(ROTATION_OFFSET.Z))
+                task.delay(0.3, function()
+                    soundPart.CFrame = originalCFrame
+                    ReplicatedStorage.MenuToys.DestroyToy:FireServer(currentToy)
+                    currentToy = nil
+                end)
+            end
+        end
+    end)
+end
+
+-- Example usage:
+-- paint(Players:FindFirstChild("TargetPlayerName"))
+
+--====================================
+-- .paint Command
+--====================================
+createCmd("paint", "Spawn toy and 'paint' a target player", function(args)
+    local target = findPlayer(args[1] or "")
+    if not target or not target.Character then
+        return showNotification("Error", "Player not found or invalid")
+    end
+
+    if currentToy and currentToy.Parent then
+        return showNotification("Toy", "Toy already in use")
+    end
+
+    -- Spawn and handle toy
+    local toy = spawnToy()
+    handleToy(toy)
+    wait(1)
+
+    -- Wait until toy is ready and owned
+    local readyConn
+    readyConn = RunService.Heartbeat:Connect(function()
+        if currentToy and currentToy.Parent then
+            local soundPart = currentToy:FindFirstChild("SoundPart")
+            local targetHRP = target.Character:FindFirstChild("Head") -- can also use "HumanoidRootPart"
+            if soundPart and targetHRP then
+                readyConn:Disconnect()
+
+                -- constantly teleport toy to target
+                local teleportConn
+                teleportConn = RunService.Heartbeat:Connect(function()
+                    if currentToy and currentToy.Parent and target.Character and targetHRP.Parent then
+                        soundPart.CFrame = targetHRP.CFrame 
+                   * CFrame.new(0, 5, 0)  -- positional offset
+                   * CFrame.Angles(
+                        math.rad(ROTATION_OFFSET.X), 
+                        math.rad(ROTATION_OFFSET.Y), 
+                        math.rad(ROTATION_OFFSET.Z)
+                     )  -- rotation offset
+                    else
+                        -- stop teleporting and destroy toy
+                        teleportConn:Disconnect()
+                        if currentToy and currentToy.Parent then
+                            ReplicatedStorage.MenuToys.DestroyToy:FireServer(currentToy)
+                            currentToy = nil
+                        end
+                    end
+                end)
+
+                -- auto destroy toy after 10 seconds (optional)
+                task.delay(0.9, function()
+                    if currentToy and currentToy.Parent then
+                        teleportConn:Disconnect()
+                        ReplicatedStorage.MenuToys.DestroyToy:FireServer(currentToy)
+                        currentToy = nil
+                    end
+                end)
+            end
+        end
+    end)
+
+    showNotification("Paint", "Painting " .. target.Name)
+end)
+
+
+--====================================
+-- Execute Commands
+--====================================
+box.FocusLost:Connect(function(enter)
+    if not enter then return end
+    local txt = box.Text
+    box.Text = ""
+
+    if txt:sub(1, 1) ~= "." then return end
+
+    local args = txt:sub(2):split(" ")
+    local name = table.remove(args, 1):lower()
+
+    local cmd = Commands[name]
+    if not cmd then
+        return showNotification("Error", "Unknown command")
+    end
+
+    cmd.Run(args)
+end)
